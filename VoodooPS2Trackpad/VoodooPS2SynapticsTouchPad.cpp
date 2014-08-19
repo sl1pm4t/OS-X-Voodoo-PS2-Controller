@@ -1933,6 +1933,24 @@ void ApplePS2SynapticsTouchPad::setTouchPadEnable( bool enable )
     _device->submitRequestAndBlock(&request);
 }
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2SynapticsTouchPad::setTouchPadReset( )
+{
+    //
+    // Instructs the trackpad to start or stop the reporting of data packets.
+    // It is safe to issue this request from the interrupt/completion context.
+    //
+    
+    // (mouse enable/disable command)
+    TPS2Request<1> request;
+    request.commands[0].command = kPS2C_SendMouseCommandAndCompareAck;
+    request.commands[0].inOrOut = kDP_Reset;
+    request.commandsCount = 1;
+    assert(request.commandsCount <= countof(request.commands));
+    _device->submitRequestAndBlock(&request);
+}
+
 // - -  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool ApplePS2SynapticsTouchPad::getTouchPadStatus(  UInt8 buf3[] )
@@ -2043,7 +2061,6 @@ void ApplePS2SynapticsTouchPad::initTouchPad()
     // IRQ is enabled as side effect of setting mode byte
     // Also touchpad is enabled as side effect
     //
-    
     setTouchpadModeByte();
     
     //
@@ -2128,7 +2145,7 @@ bool ApplePS2SynapticsTouchPad::setTouchPadModeByte(UInt8 modeByteValue)
     if (i != request.commandsCount)
         DEBUG_LOG("VoodooPS2Trackpad: sending $FF failed: %d\n", request.commandsCount);
 #endif
-
+    
 #ifdef SET_STREAM_MODE
     // This was another attempt to solve wake from sleep problems.  Not needed.
     i = 0;
@@ -2491,10 +2508,14 @@ void ApplePS2SynapticsTouchPad::setDevicePowerState( UInt32 whatToDo )
 
         case kPS2C_EnableDevice:
             //
+            // Send the Reset signal
+            //
+            setTouchPadReset();
+            
+            //
             // Must not issue any commands before the device has
             // completed its power-on self-test and calibration.
-            //
-
+            //            
             IOSleep(wakedelay);
             
             // Reset and enable the touchpad.
